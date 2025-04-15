@@ -305,21 +305,31 @@ Hence, **adaptive sampling** significantly reduces the overall energy footprint 
 
 ### 2. Latency
 
-End-to-end latency is measured as the time from when a sampling cycle begins until the aggregated results are published via MQTT. The code snippet below (simplified) shows how we capture timestamps in microseconds (via `esp_timer_get_time()`) for this calculation:
+**Methodology:**  
+The system calculates latency by recording timestamps at two key points:
+- **Sample Timestamp:** Captured when the sampling cycle starts (i.e., when the first sample for an aggregation window is taken).
+- **Publish Timestamp:** Recorded immediately before an MQTT message is published with the aggregated sensor value.
+
+The difference between these timestamps provides the latency for that cycle—the time taken from data generation to the moment the aggregated result is sent over the network.
+
+**Code Snippet:**
 
 ```cpp
-// In samplingTask or setup:
-// Record the initial time when sampling starts
-sample_timestamp = esp_timer_get_time();
+// In the averaging task, record the start of the aggregation window.
+sample_timestamp = esp_timer_get_time(); // Timestamp when sampling starts (in microseconds)
 
-// In averagingTask (just before MQTT publish):
-publish_timestamp = esp_timer_get_time();
+// ... Aggregation and waiting for the AVG_WINDOW_MS to pass ...
+
+// Just before publishing, record the publish timestamp.
+publish_timestamp = esp_timer_get_time(); // Timestamp before MQTT publish
+
+// Calculate cycle latency (in microseconds)
 uint64_t latency_us = publish_timestamp - sample_timestamp;
-total_latency_us += latency_us;
-latency_count++;
+total_latency_us += latency_us; // Accumulate latency over cycles
+latency_count++; // Count the number of cycles processed
 
-// We can then compute average latency:
+// Compute average latency over all cycles in milliseconds
 float avg_latency_ms = (float)(total_latency_us / latency_count) / 1000.0;
-Serial.printf("[METRICS] Latency: %.2f ms\n", avg_latency_ms);
+Serial.printf("[METRICS] End-to-End Latency: %.2f ms\n", avg_latency_ms);
 
 
