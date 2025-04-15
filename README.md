@@ -1,7 +1,7 @@
 # Adaptive IoT Sampling with FFT, MQTT, and LoRaWAN
 
 **Version:** 1.0  
-**Updated:** April 4, 2025  
+**Updated:** April 15, 2025  
 **Board:** Heltec ESP32 V3
 
 ---
