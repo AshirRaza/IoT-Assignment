@@ -330,10 +330,11 @@ latency_count++; // Count the number of cycles processed
 
 // Compute average latency over all cycles in milliseconds
 float avg_latency_ms = (float)(total_latency_us / latency_count) / 1000.0;
-Serial.printf("[METRICS] End-to-End Latency: %.2f ms\n", avg_latency_ms);
+Serial.printf("[METRICS] End-to-End Latency: %.2f ms\n", avg_latency_ms
+```
 
 ---
- ```
+ 
 
 ### 3. Data Transmission
 
@@ -366,18 +367,11 @@ if (client.publish(mqtt_topic, msg)) {
 
 ```
 
-Discussion:
+**Discussion**:
 
-Per-Publish Payload Size:
+**Per-Publish Payload Size**:
 Each MQTT message is compact—for instance, the topic string (mqtt_topic) and the payload string (e.g., "1.0000") typically sum to about 20 bytes. By aggregating data over a 5-second window, we limit the number of messages sent compared to a fully oversampled system.
 
-Total Data Accumulation:
+**Total Data Accumulation**:
 The variable mqtt_bytes_sent_total accumulates the total amount of data (in bytes) transmitted over time. This metric allows us to compare the communication load of the adaptive sampling approach versus an oversampled system.
 
-Efficiency:
-Minimizing data transmission helps reduce network congestion and lowers the energy consumption associated with radio communication. It also makes the data more manageable for systems like Grafana when visualizing trends over time.
-
-Comparison:
-In a system that continuously transmits raw sensor data at a high sampling rate (e.g., 31 kHz), the data volume would be significantly larger. In contrast, our system sends only the aggregated value for each window, greatly reducing the transmitted data—approximately 20 bytes per message compared to the potentially much higher volume of raw data.
-
-Overall, by aggregating sensor values and transmitting only a summary (e.g., the average), the system efficiently reduces the bandwidth and power requirements for communication while still providing the necessary insights about the measured signal.
