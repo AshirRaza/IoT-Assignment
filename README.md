@@ -332,4 +332,49 @@ latency_count++; // Count the number of cycles processed
 float avg_latency_ms = (float)(total_latency_us / latency_count) / 1000.0;
 Serial.printf("[METRICS] End-to-End Latency: %.2f ms\n", avg_latency_ms);
 
+---
 
+### 3. Data Transmission
+
+**Methodology:**  
+The system minimizes network overhead by aggregating sensor data over a fixed time window (e.g., 5 seconds) and then transmitting a compact payload via MQTT. The total transmitted data is evaluated by calculating the sum of the lengths (in bytes) of both the MQTT topic and the payload for every message published. This approach contrasts with an oversampled system where the high-frequency raw data would result in far more data being sent.
+
+**Code Snippet:**
+
+```cpp
+// Prepare the aggregated value as a string payload.
+// For example, if the average is computed as a floating-point number:
+char msg[50];
+snprintf(msg, sizeof(msg), "%.4f", average); // Formats the average to 4 decimal places
+
+// Publish the aggregated value via MQTT:
+if (client.publish(mqtt_topic, msg)) {
+    // Calculate the number of bytes transmitted: 
+    // Here we add the length of the topic and the payload.
+    int bytesSent = strlen(mqtt_topic) + strlen(msg);
+    mqtt_bytes_sent_total += bytesSent; // Accumulate total MQTT bytes sent
+    
+    // Log the publish time for performance metrics and future data volume evaluations.
+    publish_timestamp = esp_timer_get_time(); // Record the publish timestamp (in microseconds)
+    
+    Serial.printf("[MQTT] Published to %s: %s\n", mqtt_topic, msg);
+    Serial.printf("[METRICS] Total MQTT Bytes Sent so far: %d bytes\n", mqtt_bytes_sent_total);
+} else {
+    Serial.println("[MQTT] Publish failed - will retry next cycle");
+}
+
+Discussion:
+
+Per-Publish Payload Size:
+Each MQTT message is compact—for instance, the topic string (mqtt_topic) and the payload string (e.g., "1.0000") typically sum to about 20 bytes. By aggregating data over a 5-second window, we limit the number of messages sent compared to a fully oversampled system.
+
+Total Data Accumulation:
+The variable mqtt_bytes_sent_total accumulates the total amount of data (in bytes) transmitted over time. This metric allows us to compare the communication load of the adaptive sampling approach versus an oversampled system.
+
+Efficiency:
+Minimizing data transmission helps reduce network congestion and lowers the energy consumption associated with radio communication. It also makes the data more manageable for systems like Grafana when visualizing trends over time.
+
+Comparison:
+In a system that continuously transmits raw sensor data at a high sampling rate (e.g., 31 kHz), the data volume would be significantly larger. In contrast, our system sends only the aggregated value for each window, greatly reducing the transmitted data—approximately 20 bytes per message compared to the potentially much higher volume of raw data.
+
+Overall, by aggregating sensor values and transmitting only a summary (e.g., the average), the system efficiently reduces the bandwidth and power requirements for communication while still providing the necessary insights about the measured signal.
