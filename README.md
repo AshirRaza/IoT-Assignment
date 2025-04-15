@@ -290,7 +290,7 @@ This section discusses how the system performs in terms of power consumption, en
    - **Overhead** from FreeRTOS task management.
 
 2. **Transmission Spikes:**  
-   The highest peaks (\~630–640 mW in the image, occasionally even higher) correspond to WiFi and LoRaWAN operations—namely MQTT publishing or the LoRaWAN send operation:
+   The highest peaks (\~700 - 750) mW in the image, occasionally even higher) correspond to WiFi and LoRaWAN operations—namely MQTT publishing or the LoRaWAN send operation:
    - **WiFi Transmission:** Activating the radio for MQTT can cause short spikes.
    - **LoRaWAN Send:** Uses the LoRa transceiver for a short period, also briefly raising power.
 
