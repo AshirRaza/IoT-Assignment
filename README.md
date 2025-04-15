@@ -32,8 +32,6 @@ This README serves as a detailed walkthrough of the system, describing code orga
    - [Step-by-Step Setup](#step-by-step-setup)
 5. [Performance Evaluation](#performance-evaluation)
 6. [Troubleshooting and Additional Notes](#troubleshooting-and-additional-notes)
-7. [License](#license)
-8. [Acknowledgments](#acknowledgments)
 
 ---
 
@@ -374,4 +372,80 @@ Each MQTT message is compact—for instance, the topic string (mqtt_topic) and t
 
 **Total Data Accumulation**:
 The variable mqtt_bytes_sent_total accumulates the total amount of data (in bytes) transmitted over time. This metric allows us to compare the communication load of the adaptive sampling approach versus an oversampled system.
+
+---
+
+## Troubleshooting and Additional Notes
+
+This section provides guidance on common issues you may encounter while setting up and running the project, along with some additional observations and recommendations.
+
+### Troubleshooting
+
+1. **WiFi Connection Issues**
+   - **Symptoms:**  
+     - The serial monitor shows messages like “Connecting to WiFi...” without ever displaying “WiFi connected.”  
+     - The device fails to obtain an IP address.
+   - **Solutions:**  
+     - Double-check the WiFi credentials (`ssid` and `password`) in the code.
+     - Ensure that the ESP32 is within range of the router and that there are no network outages.
+     - Verify the static IP configuration (if used) is correct, including the gateway, subnet mask, and DNS settings.
+     - If using static IP, try switching to DHCP temporarily to rule out misconfiguration.
+
+2. **MQTT Connection and Publish Failures**
+   - **Symptoms:**  
+     - The code prints “MQTT connect failed” or “Publish failed.”
+     - No messages appear when subscribing to the specified MQTT topic.
+   - **Solutions:**  
+     - Confirm that the MQTT broker is reachable (for example, using an MQTT client such as MQTT Explorer).
+     - Verify the broker address and port (e.g., `test.mosquitto.org` on port 1883) are correct.
+     - Check network connectivity and ensure that the ESP32 is connected to WiFi before attempting MQTT communication.
+     - Increase the number of MQTT reconnection attempts or add more debug messages to trace the connection states.
+
+3. **FFT or Sampling Data Issues**
+   - **Symptoms:**  
+     - The dominant frequency values appear inconsistent or too low/high.
+     - Sample values from the sensor or simulated signal do not match expectations.
+   - **Solutions:**  
+     - Confirm that the signal generation function (`generateSignal()`) is correctly implemented.
+     - Verify that the ADC (or simulated analog reading) configuration matches the actual hardware setup.
+     - Look at the serial monitor output from the FFT task to ensure the correct windows (Hamming, etc.) are applied.
+     - Check that the buffer sizes and sampling counts are correctly set and that the synchronization mechanisms (mutexes and semaphores) are working properly.
+
+4. **Deep Sleep and RTC Memory Issues**
+   - **Symptoms:**  
+     - Critical state variables (such as cycle count or sampling frequency) do not persist across deep sleep cycles.
+     - The device behaves as though it has reset completely after each sleep.
+   - **Solutions:**  
+     - Ensure that variables meant to persist are declared with `RTC_DATA_ATTR`.
+     - Verify the deep sleep duration and wake-up conditions using `esp_sleep_enable_timer_wakeup()`.
+     - Ensure that the code properly reads and applies the RTC-stored values upon wake-up.
+
+5. **Power Consumption Measurement Discrepancies**
+   - **Symptoms:**  
+     - Measured power consumption does not match expected values.
+   - **Solutions:**  
+     - Check that any external power monitoring devices (e.g., INA219) are calibrated.
+     - Make sure that power spikes (e.g., during WiFi or transmission events) are understood as temporary increases.
+     - Consider measuring power consumption over longer periods to get average values.
+
+### Additional Notes
+
+- **System Adaptability:**  
+  The adaptive sampling scheme dynamically adjusts the sampling rate according to the signal’s dominant frequency determined via FFT analysis. This can lead to significant reductions in data transmission volume and overall power consumption compared to a fixed (oversampled) approach.
+
+- **Task Prioritization and FreeRTOS:**  
+  The project uses FreeRTOS to manage multiple concurrent tasks. If you encounter delays or watchdog timeouts, consider reviewing task priorities and stack sizes in the FreeRTOS configuration.
+
+- **Dual Communication Channels:**  
+  Both MQTT (WiFi) and LoRaWAN transmission are used. While MQTT provides near real-time local communication, LoRaWAN is intended for low-power, long-range communication. Verify that both communication channels are correctly set up in your network and account for potential interference.
+
+- **Grafana Integration:**  
+  For visualizing metrics (such as aggregated sensor data, latency, and data volume), you can set up a Grafana dashboard using MQTT as a data source. This allows you to monitor system performance trends over time.
+
+- **Further Enhancements:**  
+  - Consider implementing adaptive duty cycles in deep sleep, where the device dynamically adjusts sleep duration based on activity levels.
+  - Implement additional error logging to capture transient faults in the network or FFT calculations.
+  - Validate the system under different environmental conditions or input signals to fine-tune the adaptive sampling algorithm.
+
+By following these troubleshooting steps and additional recommendations, users can diagnose and resolve common issues that may arise when deploying the system. This documentation also highlights the design choices made in the system to balance performance, power consumption, and reliable data transmission.
 
