@@ -174,5 +174,100 @@ This section explains the functionality and design choices of the main component
 
 ---
 
+## Setup Instructions
 
+This section outlines everything needed to prepare and run the project—from hardware and software requirements to detailed step-by-step instructions.
+
+### Hardware and Software Prerequisites
+
+Before you begin, ensure you have the following:
+
+- **Hardware:**
+  - **Heltec ESP32 V3 Development Board:** The main microcontroller used in this project.
+  - **USB Cable:** For programming and debugging the ESP32.
+  - **Optional Sensors/Modules:**
+    - Analog sensors for real sensor data, or use the built-in simulated signal in the code.
+    - LoRaWAN module support is provided via the Heltec board (or an external SX1276 module if using a different board).
+    - (Optional) A power measurement module (like INA219) if you wish to monitor power consumption.
+
+- **Software:**
+  - **Arduino IDE** (or PlatformIO) with the **ESP32 Board Package** installed.
+  - **Required Arduino Libraries:**
+    - **Heltec_ESP32_Dev-Boards Library:** Provides support for the Heltec board and LoRaWAN functions.
+    - **PubSubClient Library:** For MQTT communication.
+    - **arduinoFFT Library:** To perform FFT analysis.
+    - **LoRaWan_APP Library:** (Provided by Heltec) for LoRaWAN connectivity.
+    - **ArduinoJson Library:** For formatting evaluation metrics as JSON (if used).
+  - **FreeRTOS:** Part of the ESP32 Arduino core; used for task management.
+
+- **Network Setup:**
+  - A reliable WiFi network (with known SSID and password) to which the ESP32 will connect.
+  - An MQTT broker (e.g., test.mosquitto.org) accessible from your network.
+  - (Optional) Access to The Things Network (TTN) for LoRaWAN integration.
+  - (Optional) AWS IoT Core or Grafana for visualization of metrics.
+
+### Step-by-Step Setup
+
+1. **Clone the Repository:**
+   - Open a terminal or command prompt.
+   - Run the command:
+     ```bash
+     git clone https://github.com/<your-username>/<your-repo-name>.git
+     ```
+   - Navigate to the downloaded repository folder:
+     ```bash
+     cd <your-repo-name>
+     ```
+
+2. **Install the Required Libraries:**
+   - Open the Arduino IDE.
+   - Go to **Sketch > Include Library > Manage Libraries…**
+   - Search for and install the following libraries:
+     - **Heltec_ESP32_Dev-Boards**
+     - **PubSubClient**
+     - **arduinoFFT**
+     - **LoRaWan_APP** (if not already installed, verify the repository or instructions for Heltec)
+     - **ArduinoJson** (optional, if using JSON for performance metrics)
+   - Also ensure you have the latest **ESP32 Board Package** installed (via **Boards Manager**).
+
+3. **Configure Network Settings:**
+   - Open the main sketch file (for example, `Iot_Individual_Assignment.ino`).
+   - Locate the WiFi settings at the top of the file and update them with your network details:
+     ```cpp
+     const char* ssid = "Your_WiFi_SSID";
+     const char* password = "Your_WiFi_Password";
+     ```
+   - Similarly, update the MQTT broker details:
+     ```cpp
+     const char* mqtt_server = "test.mosquitto.org"; // or your preferred MQTT broker address
+     const char* mqtt_topic = "esp32/average";
+     ```
+   - If required, adjust static IP configuration in the `setup()` function.
+
+4. **Select Your Signal Type:**
+   - The code uses a variable `signalType` to decide which synthetic signal to generate. Change its value according to your testing preference:
+     - `0` — Composite signal: `2*sin(2π*3*t) + 4*sin(2π*5*t)`
+     - `1` — High frequency: `sin(2π*100*t)`
+     - `2` — Mixed low-frequency: `sin(2π*2*t) + 0.5*sin(2π*0.5*t)`
+
+5. **Compile and Upload the Code:**
+   - In Arduino IDE, go to **Tools > Board** and select **Heltec ESP32 V3** (or your board model if different).
+   - Ensure the correct COM port is selected.
+   - Click on **Verify** to compile the code, then **Upload** to flash the ESP32.
+
+6. **Monitor and Evaluate:**
+   - Open the Serial Monitor (115200 baud rate) to view logs.
+   - The output will display:
+     - Maximum sampling frequency measurement.
+     - Adaptive sampling adjustments via FFT.
+     - Aggregated sensor values every 5 seconds.
+     - Performance metrics including end-to-end latency (in microseconds) and total MQTT bytes sent.
+     - LoRaWAN payload preparation logs.
+   - Use tools such as MQTT Explorer or Grafana (with an MQTT data source) to visualize published metrics.
+
+7. **(Optional) Configure Deep Sleep:**
+   - To enhance power efficiency, you can call the `goToDeepSleep()` function (provided in the code) after each data transmission cycle. This will put the ESP32 into a low-power state for a predefined period (e.g., 2 seconds).
+   - Ensure all necessary state variables are declared with `RTC_DATA_ATTR` so that they are preserved across deep sleep cycles.
+
+---
 
