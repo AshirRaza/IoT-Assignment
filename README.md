@@ -27,11 +27,6 @@ This README serves as a detailed walkthrough of the system, describing code orga
    - [Shared Resources and Synchronization](#shared-resources-and-synchronization)
    - [RTC Memory for State Persistence](#rtc-memory-for-state-persistence)
 3. [Code Breakdown and Walkthrough](#code-breakdown-and-walkthrough)
-   - [WiFi and MQTT Connectivity](#wifi-and-mqtt-connectivity)
-   - [Adaptive Sampling and FFT Analysis](#adaptive-sampling-and-fft-analysis)
-   - [Data Aggregation and Evaluation](#data-aggregation-and-evaluation)
-   - [LoRaWAN Transmission](#lorawan-transmission)
-   - [Power Management and Deep Sleep (Optional)](#power-management-and-deep-sleep-optional)
 4. [Setup Instructions](#setup-instructions)
    - [Hardware and Software Prerequisites](#hardware-and-software-prerequisites)
    - [Step-by-Step Setup](#step-by-step-setup)
@@ -94,40 +89,90 @@ Certain variables critical to system operation (e.g., `cycle_count`, `mqtt_bytes
 
 ---
 
-## Code Breakdown and Walkthrough
+## Code Review and Walkthrough
 
-### WiFi and MQTT Connectivity
+This section explains the functionality and design choices of the main components of the code without reproducing the full source. The following is a breakdown of each module and its role in the system:
 
-The system connects to the configured WiFi network and an MQTT broker. A static IP configuration is used to ensure DNS resolution, which is particularly useful when retrieving NTP time (if integrated).
+### 1. WiFi and MQTT Connectivity
+- **Purpose:**  
+  Establish and maintain the network connection.
+- **Key Functions:**  
+  - `ensureWiFiConnection()`: Checks whether the ESP32 is connected to WiFi; if not, it disconnects any stale connection and reconnects.
+  - `ensureMQTTConnection()`: Attempts to connect to the MQTT broker repeatedly until successful.
+- **Design Rationale:**  
+  Using blocking loops and delays ensures that the device reliably connects to your network and MQTT broker before proceeding with sensor tasks.
 
-```cpp
-void ensureWiFiConnection() {
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[WiFi] Reconnecting...");
-        WiFi.disconnect();
-        WiFi.begin(ssid, password);
-        while (WiFi.status() != WL_CONNECTED) {
-            delay(500);
-            Serial.print(".");
-        }
-        Serial.println("\n[WiFi] Reconnected");
-    }
-}
+### 2. Adaptive Sampling and FFT Analysis
+- **Sampling Task:**  
+  - **Role:** Continuously generates (or collects) sensor data using a simulated signal (or actual sensor input) and stores the data in a buffer.
+  - **Mechanism:**  
+    - Increments a logical time variable `t` using a dynamically determined time step `dt`.
+    - Updates a running sum and count for later aggregation.
+    - Notifies the FFT task when the sample buffer is full.
+- **FFT Task:**  
+  - **Role:** Processes the filled sample buffer to compute the FFT.
+  - **Mechanism:**  
+    - Applies a Hamming window to the data before computing the FFT.
+    - Determines the dominant frequency by searching for the highest magnitude in the FFT result.
+    - Updates the sampling frequency (using the Nyquist criterion: approximately 2× the dominant frequency) and adjusts the time increment `dt` accordingly.
+    - Locks the adaptive frequency when successive FFT cycles show a stable dominant frequency.
+- **Design Rationale:**  
+  This adaptive approach minimizes oversampling and helps in conserving computational resources and energy by aligning the sampling rate with the signal characteristics.
 
-void ensureMQTTConnection() {
-    if (!client.connected()) {
-        Serial.print("Connecting to MQTT...");
-        while (!client.connected()) {
-            String clientId = "ESP32Client-" + String(random(0xffff), HEX);
-            if (client.connect(clientId.c_str())) {
-                Serial.println(" connected");
-            } else {
-                Serial.print("failed, rc=");
-                Serial.print(client.state());
-                Serial.println(" trying again in 5s...");
-                delay(5000);
-            }
-        }
-    }
-}
+### 3. Data Aggregation and Evaluation
+- **Averaging Task:**  
+  - **Role:** Calculates statistics (average, and potentially median, MSE, etc.) over a fixed time window.
+  - **Mechanism:**  
+    - Aggregates the sum of the samples and counts the total number collected over the window.
+    - Computes the average value and prints this value along with the number of samples used.
+- **Performance Metrics:**  
+  - **Latency Measurement:**  
+    - Timestamps are captured at the beginning of the sampling cycle and just before publishing via MQTT.
+    - The latency (in microseconds) is computed as the difference between these timestamps and then averaged over multiple cycles.
+  - **Data Volume Calculation:**  
+    - The code estimates the data volume transmitted by summing the lengths of the MQTT topic and payload for each publication.
+- **Design Rationale:**  
+  Aggregating the data reduces the overall network communication overhead. Meanwhile, tracking performance metrics allows for later evaluation of system improvements (such as energy savings and reduced network usage).
+
+### 4. Communication – MQTT and LoRaWAN
+- **MQTT Publication:**  
+  - **Role:** Publishes the aggregated sensor value to a specified MQTT topic.
+  - **Mechanism:**  
+    - The averaged result is converted to a string and sent using the PubSubClient library.
+    - The byte count of each transmitted message (topic plus payload) is added to a global counter.
+- **LoRaWAN Transmission:**  
+  - **Role:** Prepares and sends the aggregated result over LoRaWAN.
+  - **Mechanism:**  
+    - The helper function formats the result into a byte array (payload) and then triggers transmission using Heltec's LoRaWAN API.
+- **Design Rationale:**  
+  Dual transmission ensures that data reaches both a local edge server (via MQTT) and a remote cloud solution (via LoRaWAN), leveraging the strengths of each communication protocol.
+
+### 5. Power Management and Deep Sleep (Optional)
+- **Deep Sleep Integration:**  
+  - **Purpose:**  
+    To minimize power consumption by putting the ESP32 into a low-power state between active data collection/transmission cycles.
+  - **Mechanism:**  
+    - A dedicated function (e.g., `goToDeepSleep()`) disconnects WiFi, shuts down unnecessary peripherals, and invokes `esp_deep_sleep_start()` for a preset duration.
+    - Critical variables (such as cycle count and performance metrics) are stored in RTC memory using the `RTC_DATA_ATTR` qualifier so that their values persist across deep sleep cycles.
+- **Design Rationale:**  
+  Deep sleep dramatically reduces power usage in battery-powered deployments, at the cost of brief processing interruptions—which is acceptable in many IoT applications.
+
+### 6. Integration and Flow Control
+- **Main Loop and State Machine:**  
+  - **Role:**  
+    Executes the LoRaWAN state machine, handling device initialization, joining, sending, cycling, and sleep.
+  - **Mechanism:**  
+    - The main loop reads the `deviceState` variable and calls LoRaWAN functions accordingly.
+    - It calls `ensureWiFiConnection()` and `client.loop()` to maintain network connectivity.
+- **Overall Flow:**  
+  1. The system begins with a maximum sampling test.
+  2. Then, it enters the sampling phase, where data is collected and aggregated.
+  3. FFT analysis dynamically adjusts the sampling rate.
+  4. The aggregated result is transmitted via MQTT and prepared for LoRaWAN transmission.
+  5. Performance metrics (latency and data volume) are logged.
+  6. Optionally, the device enters deep sleep to save power before the next cycle.
+
+---
+
+
 
