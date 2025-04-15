@@ -271,3 +271,55 @@ Before you begin, ensure you have the following:
 
 ---
 
+## Performance Evaluation
+
+This section discusses how the system performs in terms of power consumption, end-to-end latency, and data transmission size. Each metric is derived from periodic measurements or calculations built into the code.
+
+---
+
+### 1. Power Consumption
+
+![Power Consumption Graph](./Power_Consumption_Graph.png)
+
+<sup>**Figure:** A typical power consumption profile over ~2 seconds. During these measurements, FFT calculations had stabilized (i.e., the dominant frequency was locked), and the system’s main peaks are due to WiFi and LoRaWAN transmission events.</sup>
+
+1. **Steady-State Draw:**  
+   The graph shows that, once the FFT algorithm has locked the sampling frequency (i.e., minimal further FFT computations), the device mostly draws around 590–600 mW under normal conditions. This baseline power usage is attributed to:
+   - **Regular sampling** at the (new) adaptive frequency.
+   - **Aggregation tasks** computing statistical metrics (mean, median, MSE) every window.
+   - **Overhead** from FreeRTOS task management.
+
+2. **Transmission Spikes:**  
+   The highest peaks (\~630–640 mW in the image, occasionally even higher) correspond to WiFi and LoRaWAN operations—namely MQTT publishing or the LoRaWAN send operation:
+   - **WiFi Transmission:** Activating the radio for MQTT can cause short spikes.
+   - **LoRaWAN Send:** Uses the LoRa transceiver for a short period, also briefly raising power.
+
+3. **Comparison with Maximum Sampling Rate:**  
+   Initially, the code measured a maximum sampling rate of around 31 kHz. If we were to continuously sample at 31 kHz, the device’s CPU load would remain high and require more frequent buffer flushes (and possibly more frequent FFT runs). By contrast, once the adaptive frequency stabilizes to a lower rate (e.g., 300–600 Hz, depending on the detected signal), the number of computations per unit time is drastically reduced:
+   - **Reduced CPU Activity:** Fewer samples to process leads to fewer buffer notifications and less CPU overhead.
+   - **Lower Communication Overhead:** Aggregation intervals don’t change, but fewer samples imply less overhead in tasks like storing and transferring data, further curbing total consumption.
+
+Hence, **adaptive sampling** significantly reduces the overall energy footprint compared to a naive, over-sampled approach. Additionally, the code’s deep-sleep functionality (if activated) would further reduce power usage by periodically powering down the ESP32 between cycles.
+
+---
+
+### 2. Latency
+
+End-to-end latency is measured as the time from when a sampling cycle begins until the aggregated results are published via MQTT. The code snippet below (simplified) shows how we capture timestamps in microseconds (via `esp_timer_get_time()`) for this calculation:
+
+```cpp
+// In samplingTask or setup:
+// Record the initial time when sampling starts
+sample_timestamp = esp_timer_get_time();
+
+// In averagingTask (just before MQTT publish):
+publish_timestamp = esp_timer_get_time();
+uint64_t latency_us = publish_timestamp - sample_timestamp;
+total_latency_us += latency_us;
+latency_count++;
+
+// We can then compute average latency:
+float avg_latency_ms = (float)(total_latency_us / latency_count) / 1000.0;
+Serial.printf("[METRICS] Latency: %.2f ms\n", avg_latency_ms);
+
+
