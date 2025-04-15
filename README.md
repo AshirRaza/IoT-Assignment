@@ -26,7 +26,7 @@ This README serves as a detailed walkthrough of the system, describing code orga
    - [Tasks](#tasks)
    - [Shared Resources and Synchronization](#shared-resources-and-synchronization)
    - [RTC Memory for State Persistence](#rtc-memory-for-state-persistence)
-3. [Code Breakdown and Walkthrough](#code-breakdown-and-walkthrough)
+3. [Code Review and Walkthrough](#code-review-and-walkthrough)
 4. [Setup Instructions](#setup-instructions)
    - [Hardware and Software Prerequisites](#hardware-and-software-prerequisites)
    - [Step-by-Step Setup](#step-by-step-setup)
