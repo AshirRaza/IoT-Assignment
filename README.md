@@ -279,7 +279,7 @@ This section discusses how the system performs in terms of power consumption, en
 
 ### 1. Power Consumption
 
-![Power Consumption Graph](./Power_Consumption_Graph.png)
+![Power Consumption Graph](./Power_Consumption_Graph.PNG)
 
 <sup>**Figure:** A typical power consumption profile over ~2 seconds. During these measurements, FFT calculations had stabilized (i.e., the dominant frequency was locked), and the system’s main peaks are due to WiFi and LoRaWAN transmission events.</sup>
 
