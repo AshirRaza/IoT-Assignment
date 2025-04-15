@@ -333,6 +333,7 @@ float avg_latency_ms = (float)(total_latency_us / latency_count) / 1000.0;
 Serial.printf("[METRICS] End-to-End Latency: %.2f ms\n", avg_latency_ms);
 
 ---
+ ```
 
 ### 3. Data Transmission
 
@@ -362,6 +363,8 @@ if (client.publish(mqtt_topic, msg)) {
 } else {
     Serial.println("[MQTT] Publish failed - will retry next cycle");
 }
+
+```
 
 Discussion:
 
