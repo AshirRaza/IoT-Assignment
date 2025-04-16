@@ -27,7 +27,7 @@ SemaphoreHandle_t aggregateMutex; // Protects sumAggregate, aggregateSampleCount
 SemaphoreHandle_t timingMutex;    // Protects samplingFrequency, dt
 
 // ---------- Constants ----------
-#define SAMPLE_COUNT 512
+#define SAMPLE_COUNT 256
 #define MAX_SAMPLING_TEST_COUNT 1000
 #define ANALOG_PIN 1
 #define AVG_WINDOW_MS 5000
